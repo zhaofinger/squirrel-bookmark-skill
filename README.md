@@ -4,7 +4,8 @@
 
 ## 功能
 
-- 抓取网页内容（标题、正文、描述）
+- 抓取网页原始内容（Markdown/HTML）
+- 根据执行环境能力生成/提取结构化字段（title、summary、tags）
 - 保存到 Squirrel 收藏夹
 - 返回保存结果和访问链接
 
@@ -17,7 +18,7 @@
 
 需要以下信息：
 
-1. **SQUIRREL_API_ENDPOINT** - API 地址（如：`https://your-domain.com/api/bookmarks`）
+1. **SQUIRREL_BASE_URL** - Squirrel 服务的基础 URL（默认：`https://squirrel-kappa.vercel.app`）
 2. **SQUIRREL_API_TOKEN** - API Token（格式：`sq_xxxx...`）
 
 ## 文件结构
@@ -45,13 +46,15 @@ python -m scripts.package_skill /path/to/squirrel-bookmark
 
 ## 网页抓取策略
 
-使用三级降级抓取策略，确保最大程度获取页面内容：
+使用三级降级抓取策略：
 
-1. **defuddle.md** - 结构化网页内容提取
-2. **r.jina.ai** - AI 驱动的内容提取服务（支持 API Key 认证）
-3. **Browser Fallback** - 直接 HTTP 请求获取基础信息
+1. **defuddle.md** - 返回 Markdown + YAML frontmatter
+2. **r.jina.ai** - 返回 Markdown 格式文本（支持 API Key 认证）
+3. **Browser Fallback** - 返回原始 HTML 内容
 
-脚本会自动依次尝试，直到成功为止。
+**注意：** 脚本只负责抓取原始内容。结构化字段（title、summary、tags）可根据执行环境能力选择生成方式：
+- 有 AI 能力的环境：使用 AI 从 content 中提取
+- 无 AI 能力的环境：从 YAML frontmatter 提取、正则提取或询问用户
 
 ### API Key 配置（可选）
 
@@ -100,7 +103,7 @@ bun install
 **用户：** 收藏这个链接 https://example.com/article
 
 **Claude：** 将自动：
-1. 抓取网页内容
-2. 提取标题和描述
-3. 调用 Squirrel API 保存
+1. 抓取网页原始内容（Markdown/HTML）
+2. 使用 AI 从内容中提取 title、summary、tags
+3. 调用 Squirrel API 保存（字段：url, title, summary, content, tags）
 4. 返回结果和访问链接

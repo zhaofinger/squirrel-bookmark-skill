@@ -9,11 +9,12 @@ description: |
   - 用户提供了 URL 并表达保存意愿
 
   **功能：**
-  - 抓取网页内容（标题、正文）
+  - 抓取网页原始内容（Markdown/HTML）
+  - 生成或提取 title、summary、tags
   - 保存到 Squirrel 收藏夹
   - 返回保存结果和访问链接
 
-  **注意：** 此 skill 依赖用户执行环境的 AI 能力来生成摘要，skill 本身只负责抓取和存储。
+  **注意：** 此 skill 可根据执行环境的能力选择不同的结构化字段生成方式。
 ---
 
 # Squirrel 收藏 Skill
@@ -58,9 +59,11 @@ bun run scripts/fetch-page.ts "<URL>"
 ```
 
 **抓取优先级：**
-1. **defuddle.md** - 优先使用专业的网页内容提取服务
-2. **r.jina.ai** - 如 defuddle 失败，使用 Jina AI 的内容提取服务
-3. **Browser Fallback** - 如上述均失败，使用直接 HTTP 请求获取页面基础信息
+1. **defuddle.md** - 返回 Markdown + YAML frontmatter
+2. **r.jina.ai** - 返回 Markdown 格式文本
+3. **Browser Fallback** - 返回原始 HTML 内容
+
+**脚本只返回原始内容**，不做结构化提取。
 
 **API Key 配置（可选）：**
 
@@ -83,25 +86,59 @@ bun run scripts/fetch-page.ts "https://example.com"
 ```json
 {
   "url": "https://example.com",
-  "title": "示例页面标题",
-  "description": "页面描述",
-  "content": "正文内容...",
+  "content": "原始抓取内容（Markdown 或 HTML）...",
+  "contentType": "markdown",
   "success": true,
   "source": "defuddle"
 }
 ```
 
-**依赖：** 需要已安装 Bun
+**输出字段说明：**
+- `url` - 原始 URL
+- `content` - 原始抓取内容（Markdown 或 HTML）
+- `contentType` - 内容类型：`markdown` 或 `html`
+- `source` - 抓取源：`defuddle`/`jina`/`browser`/`none`
+- `success` - 是否抓取成功
 
-**注意：** 输出中的 `source` 字段表示实际使用的抓取方式（`defuddle`/`jina`/`browser`/`none`），便于调试和监控。
+### 3. 生成结构化字段
 
-### 3. 生成摘要（可选）
+需要从抓取的 `content` 中生成以下字段：
 
-如果用户环境支持 AI 能力，生成网页摘要：
-- 摘要长度控制在 200 字以内
-- 保留文章的核心观点
+| 字段 | 说明 | 示例 |
+|------|------|------|
+| **title** | 文章标题 | "React 18 新特性详解" |
+| **summary** | 内容摘要（200字以内） | "本文介绍了 React 18 的并发特性、自动批处理..." |
+| **tags** | 标签数组（3-5个） | ["react", "javascript", "frontend"] |
 
-如果环境不支持 AI，使用 meta description 或正文前 200 字作为摘要。
+**根据执行环境选择生成方式：**
+
+#### 方式 A：执行环境有 AI 能力（如 Claude、GPT 等）
+
+使用 AI 从 content 中提取结构化字段：
+
+```
+请从以下网页内容中提取信息，返回 JSON 格式：
+- title: 文章标题
+- summary: 内容摘要（200字以内）
+- tags: 相关标签（3-5个）
+
+内容：
+{content}
+```
+
+#### 方式 B：执行环境无 AI 能力
+
+**选项 1：使用 r.jina.ai 的元数据**
+r.jina.ai 免费端点返回的 Markdown 通常包含标题（第一行 `# 标题`），可以提取作为 title。
+
+**选项 2：使用 defuddle.md 的 YAML frontmatter**
+如果抓取源是 defuddle.md，可以从 YAML frontmatter 中提取 `title` 和 `excerpt` 字段。
+
+**选项 3：简单的正则提取**
+从 HTML 中提取 `<title>` 标签和 `<meta name="description">` 内容。
+
+**选项 4：询问用户**
+如果自动提取失败，可以询问用户手动提供标题和标签。
 
 ### 4. 保存到 Squirrel
 
@@ -114,11 +151,19 @@ Content-Type: application/json
 
 {
   "url": "<原始URL>",
-  "title": "<网页标题>",
-  "description": "<摘要/描述>",
-  "content": "<正文内容（可选）>"
+  "title": "<生成的标题>",
+  "summary": "<生成的摘要>",
+  "content": "<原始抓取内容>",
+  "tags": ["<标签1>", "<标签2>", "<标签3>"]
 }
 ```
+
+**必填字段：**
+- `url` - 原始 URL
+- `title` - 文章标题
+- `summary` - 内容摘要
+- `content` - 原始抓取内容（Markdown/HTML）
+- `tags` - 标签数组
 
 ### 5. 返回结果给用户
 
@@ -127,10 +172,12 @@ Content-Type: application/json
 ```markdown
 ## 收藏成功 ✅
 
-**标题：** [网页标题]
+**标题：** [标题]
+
+**标签：** #tag1 #tag2 #tag3
 
 **摘要：**
-[生成的摘要内容]
+[摘要内容]
 
 **访问地址：**
 [收藏详情页链接]
@@ -146,31 +193,38 @@ Content-Type: application/json
 | API 认证失败 | 提示检查 API Token 是否正确 |
 | 网页抓取超时 | 尝试简化抓取或提示用户手动输入 |
 | API 返回错误 | 显示错误信息并建议重试 |
+| 无法生成结构化字段 | 询问用户手动提供标题和标签 |
 
 ## 示例对话
 
 **用户：** 收藏这个链接 https://example.com/article
 
-**Claude：**
-1. 抓取 https://example.com/article 内容
-2. 提取标题和正文
-3. 生成摘要
-4. 调用 Squirrel API 保存
-5. 返回结果：
+**执行环境有 AI 时：**
+1. 抓取 https://example.com/article 原始内容
+2. 使用 AI 分析 content，生成 title、summary、tags
+3. 调用 Squirrel API 保存
+4. 返回结果：
 
 ```
 ## 收藏成功 ✅
 
-**标题：** 示例文章标题
+**标题：** React 18 新特性详解
+
+**标签：** #react #javascript #frontend
 
 **摘要：**
-这是一篇关于 xxx 的文章，主要介绍了...
+本文详细介绍了 React 18 的主要新特性...
 
-**访问地址：**
-https://squirrel-kappa.vercel.app/bookmarks/123
-
+**访问地址：** https://squirrel-kappa.vercel.app/bookmarks/123
 **保存时间：** 2026-03-16 14:30:00
 ```
+
+**执行环境无 AI 时：**
+1. 抓取 https://example.com/article 原始内容
+2. 尝试从 content 中提取标题（Markdown 第一行 # 标题）
+3. 询问用户："请为此文章添加标签（用逗号分隔）："
+4. 调用 Squirrel API 保存
+5. 返回结果
 
 ## 注意事项
 
@@ -178,3 +232,4 @@ https://squirrel-kappa.vercel.app/bookmarks/123
 2. **内容长度限制** - 正文内容建议限制在 50KB 以内，避免 API 传输过大
 3. **重复检测** - 如 Squirrel API 支持，可先查询 URL 是否已存在
 4. **隐私保护** - 不保存包含敏感信息的页面（如登录后的个人页面）
+5. **字段生成质量** - 根据执行环境能力选择合适的方式生成结构化字段

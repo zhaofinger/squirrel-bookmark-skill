@@ -1,52 +1,65 @@
 #!/usr/bin/env bun
 /**
- * Squirrel Bookmark Helper Script - 多级抓取策略
+ * Squirrel Bookmark Helper Script - 网页内容抓取
+ *
+ * 只负责抓取原始内容，不做结构化提取。
+ * title、summary、tags 等字段由 AI 生成。
  *
  * 抓取优先级：
- * 1. defuddle.md - 结构化抓取
- * 2. r.jina.ai - AI 内容提取（支持 API Key 认证）
- * 3. agent browser - 浏览器自动化（备用）
+ * 1. defuddle.md - 返回 Markdown + YAML frontmatter
+ * 2. r.jina.ai - 返回 Markdown 格式文本
+ * 3. Browser Fallback - 返回 HTML 内容
  *
  * 环境变量：
- * - JINA_API_KEY: r.jina.ai 的 API Key（可选，未配置时使用免费端点）
- * - DEFUDDLE_API_KEY: defuddle.md 的 API Key（如需要）
+ * - JINA_API_KEY: r.jina.ai 的 API Key（可选）
  */
+
+const REQUEST_TIMEOUT = 30000; // 30秒超时
 
 interface FetchResult {
   url: string;
-  title: string;
-  description: string;
-  content: string;
+  content: string;  // 原始抓取内容（markdown 或 html）
+  contentType: 'markdown' | 'html';
   success: boolean;
   source: 'defuddle' | 'jina' | 'browser' | 'none';
   error?: string;
 }
 
+// 带超时的 fetch
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout: number = REQUEST_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // 尝试从 defuddle.md 抓取
 async function fetchWithDefuddle(url: string): Promise<FetchResult | null> {
   try {
-    // defuddle.md API 通常需要 POST 请求到特定端点
-    // 这里假设是标准 API 格式，根据实际情况调整
-    const response = await fetch('https://api.defuddle.md/extract', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ url }),
-    });
+    const response = await fetchWithTimeout(`https://defuddle.md/${url}`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
+    const content = await response.text();
 
     return {
       url,
-      title: data.title || data.headline || '未命名页面',
-      description: data.description || data.summary || '',
-      content: data.content || data.text || data.article || '',
+      content,
+      contentType: 'markdown',
       success: true,
       source: 'defuddle',
     };
@@ -61,23 +74,19 @@ async function fetchWithJina(url: string): Promise<FetchResult | null> {
   const jinaApiKey = process.env.JINA_API_KEY;
 
   try {
-    let jinaUrl: string;
+    const jinaUrl = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`;
     const headers: Record<string, string> = {
       'Accept': 'application/json',
     };
 
     if (jinaApiKey) {
-      // 使用带认证的 API 端点（更稳定、更高配额）
-      jinaUrl = 'https://r.jina.ai/http://__url__'.replace('__url__', encodeURIComponent(url));
       headers['Authorization'] = `Bearer ${jinaApiKey}`;
       console.error('使用 Jina API Key 进行认证抓取');
     } else {
-      // 使用免费端点
-      jinaUrl = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`;
       console.error('使用 Jina 免费端点（未配置 API Key）');
     }
 
-    const response = await fetch(jinaUrl, { headers });
+    const response = await fetchWithTimeout(jinaUrl, { headers });
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
@@ -86,33 +95,13 @@ async function fetchWithJina(url: string): Promise<FetchResult | null> {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    // jina.ai 返回纯文本或 JSON，根据 Content-Type 判断
-    const contentType = response.headers.get('content-type') || '';
-    let title: string;
-    let content: string;
-    let description: string;
-
-    if (contentType.includes('application/json')) {
-      const data = await response.json();
-      title = data.title || data.data?.title || '未命名页面';
-      content = data.content || data.data?.content || data.text || '';
-      description = data.description || data.excerpt || data.data?.description || '';
-    } else {
-      // 免费端点返回 Markdown 格式文本
-      const text = await response.text();
-      // 尝试从 Markdown 提取标题（通常是第一行的 # 标题）
-      const titleMatch = text.match(/^#\s+(.+)$/m);
-      title = titleMatch ? titleMatch[1].trim() : '未命名页面';
-      content = text;
-      // 提取前 200 字作为描述
-      description = text.replace(/^#\s+.+$/m, '').trim().slice(0, 200);
-    }
+    // jina.ai 返回纯文本 Markdown
+    const content = await response.text();
 
     return {
       url,
-      title,
-      description,
       content,
+      contentType: 'markdown',
       success: true,
       source: 'jina',
     };
@@ -122,61 +111,27 @@ async function fetchWithJina(url: string): Promise<FetchResult | null> {
   }
 }
 
-// 备用：直接使用 fetch 获取（模拟 browser 获取基础信息）
+// 备用：直接获取 HTML
 async function fetchWithBrowserFallback(url: string): Promise<FetchResult | null> {
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      redirect: 'follow',
     });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const html = await response.text();
-
-    // 提取标题
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    let title = titleMatch ? titleMatch[1].trim() : '未命名页面';
-    // 清理标题后缀
-    title = title.replace(/\s*[\|\-–—]\s*[^|\-–—]{0,50}$/, '');
-
-    // 提取描述
-    const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-    const description = descMatch ? descMatch[1].trim() : '';
-
-    // 提取正文（简化处理）
-    let content = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-
-    const articleMatch = content.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-    const mainMatch = content.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-    const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-
-    content = articleMatch?.[1] || mainMatch?.[1] || bodyMatch?.[1] || content;
-    content = content
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, ' ')
-      .trim()
-      .slice(0, 10000);
+    const content = await response.text();
 
     return {
       url,
-      title,
-      description,
       content,
+      contentType: 'html',
       success: true,
       source: 'browser',
     };
@@ -186,7 +141,7 @@ async function fetchWithBrowserFallback(url: string): Promise<FetchResult | null
   }
 }
 
-// 主抓取函数
+// 主抓取函数 - 只获取原始内容
 async function fetchPage(url: string): Promise<FetchResult> {
   // 1. 尝试 defuddle.md
   console.error('尝试使用 defuddle.md 抓取...');
@@ -215,9 +170,8 @@ async function fetchPage(url: string): Promise<FetchResult> {
   // 全部失败
   return {
     url,
-    title: '',
-    description: '',
     content: '',
+    contentType: 'html',
     success: false,
     source: 'none',
     error: '所有抓取方式均失败',
@@ -237,11 +191,53 @@ async function main() {
   }
 
   // 验证 URL 格式
+  let parsedUrl: URL;
   try {
-    new URL(url);
+    parsedUrl = new URL(url);
   } catch {
     console.log(JSON.stringify({
       error: "无效的 URL 格式",
+      url,
+      success: false,
+      source: 'none',
+    }, null, 2));
+    process.exit(1);
+  }
+
+  // 验证 URL 协议
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    console.log(JSON.stringify({
+      error: "不支持的 URL 协议，仅支持 HTTP 和 HTTPS",
+      url,
+      success: false,
+      source: 'none',
+    }, null, 2));
+    process.exit(1);
+  }
+
+  // 验证 URL 长度
+  if (url.length > 2048) {
+    console.log(JSON.stringify({
+      error: "URL 过长（最大 2048 字符）",
+      url,
+      success: false,
+      source: 'none',
+    }, null, 2));
+    process.exit(1);
+  }
+
+  // SSRF 防护：阻止访问内网地址
+  const hostname = parsedUrl.hostname.toLowerCase();
+  if (hostname === 'localhost' || hostname.endsWith('.localhost') ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
+      hostname.startsWith('169.254.') ||
+      hostname.startsWith('fc00:') ||
+      hostname.startsWith('fe80:')) {
+    console.log(JSON.stringify({
+      error: "不允许访问内网地址",
       url,
       success: false,
       source: 'none',
