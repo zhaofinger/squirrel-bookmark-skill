@@ -1,0 +1,11 @@
+{
+  "name": "squirrel-bookmark-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "fetch": "bun run fetch-page.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

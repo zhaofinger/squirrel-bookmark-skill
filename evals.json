@@ -1,0 +1,23 @@
+{
+  "skill_name": "squirrel-bookmark",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我收藏这个链接 https://example.com/article，我的 Squirrel API 地址是 https://my-squirrel.app/api/bookmarks，Token 是 sq_test123",
+      "expected_output": "成功保存收藏并返回标题、摘要和访问链接",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "添加收藏：https://github.com/anthropics/claude-code",
+      "expected_output": "抓取 GitHub 页面，保存到收藏夹并返回结果",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "保存网页",
+      "expected_output": "询问用户提供 URL",
+      "files": []
+    }
+  ]
+}
