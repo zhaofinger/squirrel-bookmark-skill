@@ -102,8 +102,15 @@ bun install
 
 **用户：** 收藏这个链接 https://example.com/article
 
-**Claude：** 将自动：
+**AI 环境（如 Claude）：**
 1. 抓取网页原始内容（Markdown/HTML）
 2. 使用 AI 从内容中提取 title、summary、tags
 3. 调用 Squirrel API 保存（字段：url, title, summary, content, tags）
 4. 返回结果和访问链接
+
+**非 AI 环境：**
+1. 抓取网页原始内容
+2. 尝试从 content 中提取 title（如 Markdown 第一行、YAML frontmatter）
+3. 询问用户提供 tags
+4. 调用 Squirrel API 保存
+5. 返回结果和访问链接
