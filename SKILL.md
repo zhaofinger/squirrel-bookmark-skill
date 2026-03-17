@@ -23,23 +23,9 @@ description: |
 
 ## 使用前提
 
-执行此 skill 前，确保以下信息已配置：
+执行此 skill 前，需要配置 **SQUIRREL_API_TOKEN** - API 认证 Token（格式：`sq_xxxx...`）
 
-1. **SQUIRREL_BASE_URL** - Squirrel 服务的基础 URL（默认：`https://squirrel-kappa.vercel.app`）
-2. **SQUIRREL_API_TOKEN** - API 认证 Token（格式：`sq_xxxx...`）
-
-**固定 API 端点：** `/api/bookmarks`
-
-完整 API URL 为：`${SQUIRREL_BASE_URL}/api/bookmarks`
-
-**默认配置：**
-- 基础 URL: `https://squirrel-kappa.vercel.app`
-- API 端点: `https://squirrel-kappa.vercel.app/api/bookmarks`
-
-这些信息可以通过以下方式提供：
-- 用户直接告知
-- 从环境变量读取：`SQUIRREL_BASE_URL`、`SQUIRREL_API_TOKEN`
-- 从配置文件读取
+**API 端点（固定）：** `https://squirrel-kappa.vercel.app/api/bookmarks`
 
 ## 工作流程
 
@@ -48,7 +34,7 @@ description: |
 如果用户没有提供 URL，主动询问：
 - "请提供要收藏的网页 URL"
 
-检查是否已配置 API 信息，如未配置则询问用户。
+如未配置 API Token，询问用户提供。
 
 ### 2. 抓取网页内容
 
@@ -142,10 +128,10 @@ r.jina.ai 免费端点返回的 Markdown 通常包含标题（第一行 `# 标�
 
 ### 4. 保存到 Squirrel
 
-通过 API 将收藏数据提交到 Squirrel。API 端点固定为 `/api/bookmarks`：
+通过 API 将收藏数据提交到 Squirrel。API 端点固定为：
 
 ```http
-POST ${SQUIRREL_BASE_URL}/api/bookmarks
+POST https://squirrel-kappa.vercel.app/api/bookmarks
 Authorization: Bearer <SQUIRREL_API_TOKEN>
 Content-Type: application/json
 
@@ -180,7 +166,7 @@ Content-Type: application/json
 [摘要内容]
 
 **访问地址：**
-[收藏详情页链接]
+https://squirrel-kappa.vercel.app/bookmarks/<id>
 
 **保存时间：** [当前时间]
 ```

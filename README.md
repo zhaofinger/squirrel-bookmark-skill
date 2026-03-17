@@ -16,10 +16,9 @@
 
 ## 配置
 
-需要以下信息：
+需要配置 **SQUIRREL_API_TOKEN** - API 认证 Token（格式：`sq_xxxx...`）
 
-1. **SQUIRREL_BASE_URL** - Squirrel 服务的基础 URL（默认：`https://squirrel-kappa.vercel.app`）
-2. **SQUIRREL_API_TOKEN** - API Token（格式：`sq_xxxx...`）
+**API 端点（固定）：** `https://squirrel-kappa.vercel.app/api/bookmarks`
 
 ## 文件结构
 
@@ -75,14 +74,9 @@ export JINA_API_KEY="your-jina-api-key"
 
 ### API 端点
 
-收藏 API 端点固定为：`/api/bookmarks`
-
-**默认地址：**
-- 基础 URL: `https://squirrel-kappa.vercel.app`
-- 完整 API: `https://squirrel-kappa.vercel.app/api/bookmarks`
+收藏 API 端点固定为：`https://squirrel-kappa.vercel.app/api/bookmarks`
 
 需要配置：
-- `SQUIRREL_BASE_URL` - 可选，默认为 `https://squirrel-kappa.vercel.app`
 - `SQUIRREL_API_TOKEN` - 必需，如 `sq_xxxx...`
 
 ### 安装 Bun
