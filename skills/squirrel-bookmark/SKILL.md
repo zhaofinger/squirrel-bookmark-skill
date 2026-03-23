@@ -1,5 +1,10 @@
 ---
 name: squirrel-bookmark
+license: MIT
+metadata:
+  version: 1.1.0
+  repository: https://github.com/zhaofinger/squirrel-bookmark-skill
+  category: productivity
 description: |
   Save a web page URL to Squirrel bookmarks.
 
