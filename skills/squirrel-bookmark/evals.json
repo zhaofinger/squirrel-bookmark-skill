@@ -36,6 +36,12 @@
       "prompt": "Save this page to Squirrel: https://example.com/article. Write the summary in Chinese as a short technical paragraph.",
       "expected_output": "Applies the requested summary language, format, and style when generating bookmark metadata, then returns the saved result together with the applied summary preferences",
       "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "Remember these settings for future bookmarks: summary language Chinese, format paragraph, style technical, length short. Then save https://example.com/article",
+      "expected_output": "Stores the persistent summary preferences only in ~/.config/squirrel-bookmark/preferences.json, uses them for the current bookmark, and returns the applied summary preferences with the saved result",
+      "files": []
     }
   ]
 }

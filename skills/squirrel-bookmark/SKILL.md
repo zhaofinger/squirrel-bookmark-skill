@@ -14,6 +14,7 @@ description: |
   - fetches page content
   - uses AI to generate `title`, `summary`, and `tags`
   - supports user-defined summary preferences such as language, format, style, and length
+  - stores persistent user summary preferences in a fixed file: `~/.config/squirrel-bookmark/preferences.json`
   - saves the bookmark through the fixed Squirrel API endpoint
 ---
 
@@ -26,6 +27,7 @@ Save a public web page to Squirrel bookmarks.
 - `SQUIRREL_API_TOKEN` must be available.
 - The runtime must have AI capability for structured extraction.
 - The bookmark API endpoint is fixed: `https://squirrel-kappa.vercel.app/api/bookmarks`
+- Persistent user summary preferences must be stored only in `~/.config/squirrel-bookmark/preferences.json`
 - Do not accept a user-defined Squirrel API URL.
 
 ## Workflow
@@ -35,6 +37,7 @@ Save a public web page to Squirrel bookmarks.
 - If no URL is provided, ask for one.
 - Reject invalid URLs, unsupported schemes, and private/internal addresses.
 - Accept optional user preferences for summary generation.
+- When the user asks to remember, save, update, or reuse summary preferences, persist them to `~/.config/squirrel-bookmark/preferences.json`.
 
 Supported summary preferences:
 - `language`, for example `English`, `Chinese`, or `Japanese`
@@ -47,6 +50,14 @@ If the user does not specify preferences, use defaults:
 - `format`: plain sentence or short paragraph, whichever best fits the content
 - `style`: neutral and factual
 - `length`: concise
+
+Persistent preference rules:
+- Use exactly one file for saved user summary preferences: `~/.config/squirrel-bookmark/preferences.json`
+- Do not write the same preference data to any other file, database, or alternate path
+- Treat the file as user-level state for this skill, not as bookmark content
+- Load saved preferences from this file before applying defaults
+- If the user provides new preferences for future use, update this file and then apply the merged preferences to the current request
+- If the user provides one-off preferences without asking to save them, apply them only to the current request and do not modify the file
 
 ### 2. Fetch page content
 
@@ -82,6 +93,7 @@ Use AI to generate:
 - `tags` with 3 to 5 items
 
 Honor any user-provided summary preferences for language, format, style, and length.
+When saved preferences exist in `~/.config/squirrel-bookmark/preferences.json`, use them as the baseline before applying request-specific overrides.
 If a user preference conflicts with safety, reliability, or the bookmark API contract, keep the output safe and explain the adjustment briefly.
 
 Default summary behavior when no preference is provided:
@@ -154,3 +166,4 @@ If the user asked for custom summary settings, confirm whether they were applied
 - This is an agent skill, not a configurable end-user tool.
 - Do not change or override the bookmark API endpoint.
 - Store only data required for the bookmark task.
+- If user summary preferences are persisted, store them only in `~/.config/squirrel-bookmark/preferences.json`.

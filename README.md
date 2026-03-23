@@ -4,7 +4,7 @@ This repository is a Vercel-style agent skills package for saving public web pag
 
 ## Included Skill
 
-- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, supports user-defined summary preferences, and saves it to the fixed Squirrel bookmark API.
+- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, supports user-defined summary preferences, stores persistent summary preferences in `~/.config/squirrel-bookmark/preferences.json`, and saves it to the fixed Squirrel bookmark API.
 
 ## Repository Layout
 
@@ -67,6 +67,14 @@ Save this page and use a long neutral summary with about 120 words.
 ```
 
 The response should also expose the applied summary preferences so users can verify what was used.
+
+If the user wants the preferences remembered for future bookmarks, the skill should persist them only in:
+
+```text
+~/.config/squirrel-bookmark/preferences.json
+```
+
+Saved preferences act as the baseline for later requests. One-off summary instructions should be applied only to the current request and should not update the file unless the user explicitly asks to remember them.
 
 ## Local Development
 
