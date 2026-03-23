@@ -1,0 +1,5 @@
+interface:
+  display_name: "Squirrel Bookmark"
+  short_description: "Save web pages into the fixed Squirrel bookmark API"
+  default_prompt: "Use $squirrel-bookmark to fetch a web page, extract metadata, and save it into Squirrel."
+

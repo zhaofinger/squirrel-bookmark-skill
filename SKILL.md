@@ -3,132 +3,77 @@ name: squirrel-bookmark
 description: |
   将网页 URL 添加到 Squirrel 智能收藏夹。
 
-  **触发时机：**
-  - 用户明确说"添加收藏"、"保存网页"、"收藏这个链接"等
-  - System Prompt 中指定执行收藏动作
-  - 用户提供了 URL 并表达保存意愿
+  触发时机：
+  - 用户明确要求“添加收藏”、“保存网页”、“收藏这个链接”
+  - 用户提供 URL 并表达保存意愿
+  - 上下文要求把网页保存到 Squirrel
 
-  **功能：**
+  功能：
   - 抓取网页原始内容（Markdown/HTML）
   - 生成或提取 title、summary、tags
-  - 保存到 Squirrel 收藏夹
-  - 返回保存结果和访问链接
-
-  **注意：** 此 skill 可根据执行环境的能力选择不同的结构化字段生成方式。
+  - 使用固定 API 端点保存到 Squirrel
 ---
 
 # Squirrel 收藏 Skill
 
-帮助用户将网页 URL 添加到 Squirrel 智能收藏夹。
+将网页内容抓取并保存到固定的 Squirrel 收藏 API。
 
-## 使用前提
+## 前提
 
-执行此 skill 前，需要配置 **SQUIRREL_API_TOKEN** - API 认证 Token（格式：`sq_xxxx...`）
+- 必须提供 `SQUIRREL_API_TOKEN`
+- 收藏 API 端点固定为 `https://squirrel-kappa.vercel.app/api/bookmarks`
+- 不接受用户自定义 Squirrel API 地址
 
-**API 端点（固定）：** `https://squirrel-kappa.vercel.app/api/bookmarks`
+## 执行步骤
 
-## 工作流程
+### 1. 获取输入
 
-### 1. 获取必要信息
-
-如果用户没有提供 URL，主动询问：
+- 如果没有 URL，询问用户：
 - "请提供要收藏的网页 URL"
-
-如未配置 API Token，询问用户提供。
+- 如果没有 API Token，询问用户提供 `SQUIRREL_API_TOKEN`
 
 ### 2. 抓取网页内容
 
-使用 Bun 运行抓取脚本，支持三级降级策略：
+运行：
 
 ```bash
 bun run scripts/fetch-page.ts "<URL>"
 ```
 
-**抓取优先级：**
-1. **defuddle.md** - 返回 Markdown + YAML frontmatter
-2. **r.jina.ai** - 返回 Markdown 格式文本
-3. **Browser Fallback** - 返回原始 HTML 内容
+抓取优先级：
+1. `defuddle.md`
+2. `r.jina.ai`
+3. browser fallback
 
-**脚本只返回原始内容**，不做结构化提取。
+脚本只返回原始内容，不负责调用收藏 API。
 
-**API Key 配置（可选）：**
+输出字段：
+- `url`
+- `content`
+- `contentType`
+- `source`
+- `success`
+- `attempts`，仅在抓取失败时返回
 
-如需使用更稳定的 r.jina.ai 付费端点，可设置环境变量：
-```bash
-export JINA_API_KEY="your-jina-api-key"
-```
-
-未配置时自动使用免费端点。获取 API Key: https://jina.ai/api-dashboard
-
-**脚本位置：** `skills/squirrel-bookmark/scripts/fetch-page.ts`
-
-**执行示例：**
-```bash
-cd skills/squirrel-bookmark
-bun run scripts/fetch-page.ts "https://example.com"
-```
-
-**输出示例：**
-```json
-{
-  "url": "https://example.com",
-  "content": "原始抓取内容（Markdown 或 HTML）...",
-  "contentType": "markdown",
-  "success": true,
-  "source": "defuddle"
-}
-```
-
-**输出字段说明：**
-- `url` - 原始 URL
-- `content` - 原始抓取内容（Markdown 或 HTML）
-- `contentType` - 内容类型：`markdown` 或 `html`
-- `source` - 抓取源：`defuddle`/`jina`/`browser`/`none`
-- `success` - 是否抓取成功
+可选环境变量：
+- `JINA_API_KEY`
 
 ### 3. 生成结构化字段
 
-需要从抓取的 `content` 中生成以下字段：
+从抓取结果中生成：
+- `title`
+- `summary`，200 字以内
+- `tags`，3 到 5 个
 
-| 字段 | 说明 | 示例 |
-|------|------|------|
-| **title** | 文章标题 | "React 18 新特性详解" |
-| **summary** | 内容摘要（200字以内） | "本文介绍了 React 18 的并发特性、自动批处理..." |
-| **tags** | 标签数组（3-5个） | ["react", "javascript", "frontend"] |
-
-**根据执行环境选择生成方式：**
-
-#### 方式 A：执行环境有 AI 能力（如 Claude、GPT 等）
-
-使用 AI 从 content 中提取结构化字段：
-
-```
-请从以下网页内容中提取信息，返回 JSON 格式：
-- title: 文章标题
-- summary: 内容摘要（200字以内）
-- tags: 相关标签（3-5个）
-
-内容：
-{content}
-```
-
-#### 方式 B：执行环境无 AI 能力
-
-**选项 1：使用 r.jina.ai 的元数据**
-r.jina.ai 免费端点返回的 Markdown 通常包含标题（第一行 `# 标题`），可以提取作为 title。
-
-**选项 2：使用 defuddle.md 的 YAML frontmatter**
-如果抓取源是 defuddle.md，可以从 YAML frontmatter 中提取 `title` 和 `excerpt` 字段。
-
-**选项 3：简单的正则提取**
-从 HTML 中提取 `<title>` 标签和 `<meta name="description">` 内容。
-
-**选项 4：询问用户**
-如果自动提取失败，可以询问用户手动提供标题和标签。
+优先使用运行环境的 AI 能力提取。如果没有 AI 能力，再按以下顺序降级：
+1. 读取 Markdown 第一行标题
+2. 读取 defuddle 的 YAML frontmatter
+3. 从 HTML 提取 `<title>` 与描述
+4. 询问用户补充标题或标签
 
 ### 4. 保存到 Squirrel
 
-通过 API 将收藏数据提交到 Squirrel。API 端点固定为：
+调用固定端点：
 
 ```http
 POST https://squirrel-kappa.vercel.app/api/bookmarks
@@ -144,78 +89,27 @@ Content-Type: application/json
 }
 ```
 
-**必填字段：**
-- `url` - 原始 URL
-- `title` - 文章标题
-- `summary` - 内容摘要
-- `content` - 原始抓取内容（Markdown/HTML）
-- `tags` - 标签数组
+- 必填字段：`url`、`title`、`summary`、`content`、`tags`
 
-### 5. 返回结果给用户
+### 5. 返回结果
 
-格式如下：
-
-```markdown
-## 收藏成功 ✅
-
-**标题：** [标题]
-
-**标签：** #tag1 #tag2 #tag3
-
-**摘要：**
-[摘要内容]
-
-**访问地址：**
-https://squirrel-kappa.vercel.app/bookmarks/<id>
-
-**保存时间：** [当前时间]
-```
+返回：
+- 标题
+- 标签
+- 摘要
+- 收藏访问地址
+- 保存时间
 
 ## 错误处理
 
-| 错误场景 | 处理方式 |
-|---------|---------|
-| URL 无法访问 | 提示用户检查 URL 是否可访问 |
-| API 认证失败 | 提示检查 API Token 是否正确 |
-| 网页抓取超时 | 尝试简化抓取或提示用户手动输入 |
-| API 返回错误 | 显示错误信息并建议重试 |
-| 无法生成结构化字段 | 询问用户手动提供标题和标签 |
+- URL 无效或是私网地址：直接拒绝
+- 抓取失败：报告 `attempts` 中的失败原因
+- API 认证失败：提示检查 `SQUIRREL_API_TOKEN`
+- 无法生成结构化字段：询问用户补充
+- API 返回错误：转述错误并建议重试
 
-## 示例对话
+## 约束
 
-**用户：** 收藏这个链接 https://example.com/article
-
-**执行环境有 AI 时：**
-1. 抓取 https://example.com/article 原始内容
-2. 使用 AI 分析 content，生成 title、summary、tags
-3. 调用 Squirrel API 保存
-4. 返回结果：
-
-```
-## 收藏成功 ✅
-
-**标题：** React 18 新特性详解
-
-**标签：** #react #javascript #frontend
-
-**摘要：**
-本文详细介绍了 React 18 的主要新特性...
-
-**访问地址：** https://squirrel-kappa.vercel.app/bookmarks/123
-**保存时间：** 2026-03-16 14:30:00
-```
-
-**执行环境无 AI 时：**
-1. 抓取 https://example.com/article 原始内容
-2. 尝试从 content 中提取标题（Markdown 第一行 # 标题）
-3. 询问用户："请为此文章添加标签（用逗号分隔）："
-4. 调用 Squirrel API 保存
-5. 返回结果
-
-## 注意事项
-
-1. **尊重 robots.txt** - 抓取前检查目标网站的 robots.txt 规则
-2. **内容长度限制** - 正文内容建议限制在 50KB 以内，避免 API 传输过大
-3. **重复检测** - 如 Squirrel API 支持，可先查询 URL 是否已存在
-4. **隐私保护** - 不保存包含敏感信息的页面（如登录后的个人页面）
-5. **字段生成质量** - 根据执行环境能力选择合适的方式生成结构化字段
+- 这是面向 agent 的 skill，不是通用用户配置化工具
+- 不允许覆盖收藏 API 端点
+- 只保存与收藏任务直接相关的数据
