@@ -13,6 +13,7 @@ description: |
   The skill:
   - fetches page content
   - uses AI to generate `title`, `summary`, and `tags`
+  - supports user-defined summary preferences such as language, format, style, and length
   - saves the bookmark through the fixed Squirrel API endpoint
 ---
 
@@ -33,6 +34,19 @@ Save a public web page to Squirrel bookmarks.
 
 - If no URL is provided, ask for one.
 - Reject invalid URLs, unsupported schemes, and private/internal addresses.
+- Accept optional user preferences for summary generation.
+
+Supported summary preferences:
+- `language`, for example `English`, `Chinese`, or `Japanese`
+- `format`, for example `sentence`, `paragraph`, or `bullets`
+- `style`, for example `neutral`, `technical`, `concise`, or `detailed`
+- `length`, for example a character target, word target, or labels such as `short` and `long`
+
+If the user does not specify preferences, use defaults:
+- `language`: match the user's language when clear, otherwise English
+- `format`: plain sentence or short paragraph, whichever best fits the content
+- `style`: neutral and factual
+- `length`: concise
 
 ### 2. Fetch page content
 
@@ -64,8 +78,17 @@ Optional env var:
 
 Use AI to generate:
 - `title`
-- `summary` within 200 characters
+- `summary`
 - `tags` with 3 to 5 items
+
+Honor any user-provided summary preferences for language, format, style, and length.
+If a user preference conflicts with safety, reliability, or the bookmark API contract, keep the output safe and explain the adjustment briefly.
+
+Default summary behavior when no preference is provided:
+- concise
+- factual
+- easy to scan
+- suitable for bookmark recall rather than full content replacement
 
 If the runtime does not have AI capability, stop immediately and return an unavailable error. Do not fall back to manual rules, HTML parsing, or user follow-up for these fields.
 
@@ -106,8 +129,17 @@ Return:
 - title
 - tags
 - summary
+- applied summary preferences
 - bookmark URL
 - saved time
+
+Expose the applied summary preferences in the response so the user can see what was used for:
+- language
+- format
+- style
+- length
+
+If the user asked for custom summary settings, confirm whether they were applied exactly or adjusted.
 
 ## Error Handling
 

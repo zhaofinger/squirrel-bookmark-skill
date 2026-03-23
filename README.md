@@ -4,7 +4,7 @@ This repository is a Vercel-style agent skills package for saving public web pag
 
 ## Included Skill
 
-- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, and saves it to the fixed Squirrel bookmark API.
+- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, supports user-defined summary preferences, and saves it to the fixed Squirrel bookmark API.
 
 ## Repository Layout
 
@@ -40,6 +40,33 @@ npx skills add zhaofinger/squirrel-bookmark-skill
 - The runtime must have AI capability. The skill does not fall back to rule-based metadata extraction.
 - Bun is required to run the local fetch helper.
 - `JINA_API_KEY` is optional.
+
+## Summary Customization
+
+The skill keeps sensible defaults, but users can customize summary generation per request.
+
+Supported summary options:
+
+- `language`
+- `format`
+- `style`
+- `length`
+
+Example requests:
+
+```text
+Save this page to Squirrel and write the summary in Chinese.
+```
+
+```text
+Bookmark this URL. Make the summary a short technical paragraph in English.
+```
+
+```text
+Save this page and use a long neutral summary with about 120 words.
+```
+
+The response should also expose the applied summary preferences so users can verify what was used.
 
 ## Local Development
 
@@ -81,4 +108,3 @@ There is no separate publish command for `skills.sh`. To make the skill discover
 ## License
 
 MIT
-

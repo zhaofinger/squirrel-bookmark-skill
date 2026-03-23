@@ -30,6 +30,12 @@
       "prompt": "Save https://example.com/article to Squirrel, but the runtime has no AI capability",
       "expected_output": "Stops immediately and returns that the skill is unavailable because AI capability is required to generate bookmark metadata",
       "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "Save this page to Squirrel: https://example.com/article. Write the summary in Chinese as a short technical paragraph.",
+      "expected_output": "Applies the requested summary language, format, and style when generating bookmark metadata, then returns the saved result together with the applied summary preferences",
+      "files": []
     }
   ]
 }
