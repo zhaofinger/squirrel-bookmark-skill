@@ -1,20 +1,21 @@
 #!/usr/bin/env bun
 /**
- * Squirrel Bookmark Helper Script - 网页内容抓取
+ * Squirrel Bookmark Helper Script - raw page fetch only
  *
- * 只负责抓取原始内容，不做结构化提取。
- * title、summary、tags 等字段由 AI 生成。
+ * This helper only fetches raw page content.
+ * It does not generate structured bookmark metadata.
+ * `title`, `summary`, and `tags` must be produced by an AI-capable runtime.
  *
- * 抓取优先级：
- * 1. defuddle.md - 返回 Markdown + YAML frontmatter
- * 2. r.jina.ai - 返回 Markdown 格式文本
- * 3. Browser Fallback - 返回 HTML 内容
+ * Fetch order:
+ * 1. defuddle.md - returns Markdown + YAML frontmatter
+ * 2. r.jina.ai - returns Markdown text
+ * 3. browser fallback - returns HTML
  *
- * 环境变量：
- * - JINA_API_KEY: r.jina.ai 的 API Key（可选）
+ * Environment variables:
+ * - JINA_API_KEY: optional API key for r.jina.ai
  */
 
-const REQUEST_TIMEOUT = 30000; // 30秒超时
+const REQUEST_TIMEOUT = 30000; // 30 second timeout
 
 interface FetchAttempt {
   source: 'defuddle' | 'jina' | 'browser';
@@ -28,7 +29,7 @@ interface AttemptResult {
 
 interface FetchResult {
   url: string;
-  content: string;  // 原始抓取内容（markdown 或 html）
+  content: string;  // Raw fetched content (Markdown or HTML)
   contentType: 'markdown' | 'html';
   success: boolean;
   source: 'defuddle' | 'jina' | 'browser' | 'none';
@@ -75,7 +76,7 @@ function isPrivateHostname(hostname: string): boolean {
   return false;
 }
 
-// 带超时的 fetch
+// Fetch with timeout.
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -95,7 +96,7 @@ async function fetchWithTimeout(
   }
 }
 
-// 尝试从 defuddle.md 抓取
+// Try fetching via defuddle.md.
 async function fetchWithDefuddle(url: string): Promise<AttemptResult> {
   try {
     const response = await fetchWithTimeout(`https://defuddle.md/${url}`);
@@ -117,12 +118,12 @@ async function fetchWithDefuddle(url: string): Promise<AttemptResult> {
     };
   } catch (error) {
     const message = formatError(error);
-    console.error(`defuddle.md 抓取失败: ${message}`);
+    console.error(`defuddle.md fetch failed: ${message}`);
     return { result: null, error: message };
   }
 }
 
-// 尝试从 r.jina.ai 抓取
+// Try fetching via r.jina.ai.
 async function fetchWithJina(url: string): Promise<AttemptResult> {
   const jinaApiKey = process.env.JINA_API_KEY;
 
@@ -134,21 +135,21 @@ async function fetchWithJina(url: string): Promise<AttemptResult> {
 
     if (jinaApiKey) {
       headers['Authorization'] = `Bearer ${jinaApiKey}`;
-      console.error('使用 Jina API Key 进行认证抓取');
+      console.error('Using Jina API key for authenticated fetch');
     } else {
-      console.error('使用 Jina 免费端点（未配置 API Key）');
+      console.error('Using the Jina free endpoint without an API key');
     }
 
     const response = await fetchWithTimeout(jinaUrl, { headers });
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        console.error('Jina API Key 无效或已过期');
+        console.error('Jina API key is invalid or expired');
       }
       throw new Error(`HTTP ${response.status}`);
     }
 
-    // jina.ai 返回纯文本 Markdown
+    // jina.ai returns plain text Markdown.
     const content = await response.text();
 
     return {
@@ -162,12 +163,12 @@ async function fetchWithJina(url: string): Promise<AttemptResult> {
     };
   } catch (error) {
     const message = formatError(error);
-    console.error(`r.jina.ai 抓取失败: ${message}`);
+    console.error(`r.jina.ai fetch failed: ${message}`);
     return { result: null, error: message };
   }
 }
 
-// 备用：直接获取 HTML
+// Fallback: fetch raw HTML directly.
 async function fetchWithBrowserFallback(url: string): Promise<AttemptResult> {
   try {
     const response = await fetchWithTimeout(url, {
@@ -195,50 +196,50 @@ async function fetchWithBrowserFallback(url: string): Promise<AttemptResult> {
     };
   } catch (error) {
     const message = formatError(error);
-    console.error(`Browser fallback 抓取失败: ${message}`);
+    console.error(`Browser fallback fetch failed: ${message}`);
     return { result: null, error: message };
   }
 }
 
-// 主抓取函数 - 只获取原始内容
+// Main fetch flow: return raw content only.
 async function fetchPage(url: string): Promise<FetchResult> {
   const attempts: FetchAttempt[] = [];
 
-  // 1. 尝试 defuddle.md
-  console.error('尝试使用 defuddle.md 抓取...');
+  // 1. Try defuddle.md.
+  console.error('Trying defuddle.md...');
   const defuddleAttempt = await fetchWithDefuddle(url);
   if (defuddleAttempt.result) {
-    console.error('✓ defuddle.md 抓取成功');
+    console.error('✓ defuddle.md fetch succeeded');
     return defuddleAttempt.result;
   }
-  attempts.push({ source: 'defuddle', error: defuddleAttempt.error ?? '抓取失败' });
+  attempts.push({ source: 'defuddle', error: defuddleAttempt.error ?? 'Fetch failed' });
 
-  // 2. 尝试 r.jina.ai
-  console.error('尝试使用 r.jina.ai 抓取...');
+  // 2. Try r.jina.ai.
+  console.error('Trying r.jina.ai...');
   const jinaAttempt = await fetchWithJina(url);
   if (jinaAttempt.result) {
-    console.error('✓ r.jina.ai 抓取成功');
+    console.error('✓ r.jina.ai fetch succeeded');
     return jinaAttempt.result;
   }
-  attempts.push({ source: 'jina', error: jinaAttempt.error ?? '抓取失败' });
+  attempts.push({ source: 'jina', error: jinaAttempt.error ?? 'Fetch failed' });
 
-  // 3. 使用 browser fallback
-  console.error('尝试使用 browser fallback 抓取...');
+  // 3. Try browser fallback.
+  console.error('Trying browser fallback...');
   const browserAttempt = await fetchWithBrowserFallback(url);
   if (browserAttempt.result) {
-    console.error('✓ browser fallback 抓取成功');
+    console.error('✓ browser fallback fetch succeeded');
     return browserAttempt.result;
   }
-  attempts.push({ source: 'browser', error: browserAttempt.error ?? '抓取失败' });
+  attempts.push({ source: 'browser', error: browserAttempt.error ?? 'Fetch failed' });
 
-  // 全部失败
+  // All fetch methods failed.
   return {
     url,
     content: '',
     contentType: 'html',
     success: false,
     source: 'none',
-    error: '所有抓取方式均失败',
+    error: 'All fetch methods failed',
     attempts,
   };
 }
@@ -255,13 +256,13 @@ async function main() {
     process.exit(1);
   }
 
-  // 验证 URL 格式
+  // Validate URL format.
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url);
   } catch {
     console.log(JSON.stringify({
-      error: "无效的 URL 格式",
+      error: 'Invalid URL format',
       url,
       success: false,
       source: 'none',
@@ -269,10 +270,10 @@ async function main() {
     process.exit(1);
   }
 
-  // 验证 URL 协议
+  // Validate URL scheme.
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
     console.log(JSON.stringify({
-      error: "不支持的 URL 协议，仅支持 HTTP 和 HTTPS",
+      error: 'Unsupported URL scheme. Only HTTP and HTTPS are allowed',
       url,
       success: false,
       source: 'none',
@@ -280,10 +281,10 @@ async function main() {
     process.exit(1);
   }
 
-  // 验证 URL 长度
+  // Validate URL length.
   if (url.length > 2048) {
     console.log(JSON.stringify({
-      error: "URL 过长（最大 2048 字符）",
+      error: 'URL is too long (maximum 2048 characters)',
       url,
       success: false,
       source: 'none',
@@ -291,11 +292,11 @@ async function main() {
     process.exit(1);
   }
 
-  // SSRF 防护：阻止访问本地、链路本地和常见内网地址
+  // SSRF guard: block localhost, link-local, and common private network addresses.
   const hostname = parsedUrl.hostname.toLowerCase();
   if (isPrivateHostname(hostname)) {
     console.log(JSON.stringify({
-      error: "不允许访问内网地址",
+      error: 'Private or internal network addresses are not allowed',
       url,
       success: false,
       source: 'none',

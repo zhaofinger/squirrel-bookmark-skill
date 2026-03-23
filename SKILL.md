@@ -1,79 +1,78 @@
 ---
 name: squirrel-bookmark
 description: |
-  将网页 URL 添加到 Squirrel 智能收藏夹。
+  Save a web page URL to Squirrel bookmarks.
 
-  触发时机：
-  - 用户明确要求“添加收藏”、“保存网页”、“收藏这个链接”
-  - 用户提供 URL 并表达保存意愿
-  - 上下文要求把网页保存到 Squirrel
+  Trigger when the user wants to save, bookmark, or add a URL to Squirrel.
 
-  功能：
-  - 抓取网页原始内容（Markdown/HTML）
-  - 生成或提取 title、summary、tags
-  - 使用固定 API 端点保存到 Squirrel
+  The skill:
+  - fetches page content
+  - uses AI to generate `title`, `summary`, and `tags`
+  - saves the bookmark through the fixed Squirrel API endpoint
 ---
 
-# Squirrel 收藏 Skill
+# Squirrel Bookmark Skill
 
-将网页内容抓取并保存到固定的 Squirrel 收藏 API。
+Save a public web page to Squirrel bookmarks.
 
-## 前提
+## Requirements
 
-- 必须提供 `SQUIRREL_API_TOKEN`
-- 收藏 API 端点固定为 `https://squirrel-kappa.vercel.app/api/bookmarks`
-- 不接受用户自定义 Squirrel API 地址
+- `SQUIRREL_API_TOKEN` must be available.
+- The runtime must have AI capability for structured extraction.
+- The bookmark API endpoint is fixed: `https://squirrel-kappa.vercel.app/api/bookmarks`
+- Do not accept a user-defined Squirrel API URL.
 
-## 执行步骤
+## Workflow
 
-### 1. 获取输入
+### 1. Validate input
 
-- 如果没有 URL，询问用户：
-- "请提供要收藏的网页 URL"
-- 如果没有 API Token，询问用户提供 `SQUIRREL_API_TOKEN`
+- If no URL is provided, ask for one.
+- Reject invalid URLs, unsupported schemes, and private/internal addresses.
 
-### 2. 抓取网页内容
+### 2. Fetch page content
 
-运行：
+Run:
 
 ```bash
 bun run scripts/fetch-page.ts "<URL>"
 ```
 
-抓取优先级：
+Fetch order:
 1. `defuddle.md`
 2. `r.jina.ai`
 3. browser fallback
 
-脚本只返回原始内容，不负责调用收藏 API。
+The script returns raw page content only. It does not call the bookmark API.
 
-输出字段：
+Expected fields:
 - `url`
 - `content`
 - `contentType`
 - `source`
 - `success`
-- `attempts`，仅在抓取失败时返回
+- `attempts` on failure
 
-可选环境变量：
+Optional env var:
 - `JINA_API_KEY`
 
-### 3. 生成结构化字段
+### 3. Generate structured fields with AI
 
-从抓取结果中生成：
+Use AI to generate:
 - `title`
-- `summary`，200 字以内
-- `tags`，3 到 5 个
+- `summary` within 200 characters
+- `tags` with 3 to 5 items
 
-优先使用运行环境的 AI 能力提取。如果没有 AI 能力，再按以下顺序降级：
-1. 读取 Markdown 第一行标题
-2. 读取 defuddle 的 YAML frontmatter
-3. 从 HTML 提取 `<title>` 与描述
-4. 询问用户补充标题或标签
+If the runtime does not have AI capability, stop immediately and return an unavailable error. Do not fall back to manual rules, HTML parsing, or user follow-up for these fields.
 
-### 4. 保存到 Squirrel
+Suggested error:
 
-调用固定端点：
+```text
+This skill is unavailable in the current runtime because AI capability is required to generate bookmark metadata.
+```
+
+### 4. Save to Squirrel
+
+Send:
 
 ```http
 POST https://squirrel-kappa.vercel.app/api/bookmarks
@@ -81,35 +80,40 @@ Authorization: Bearer <SQUIRREL_API_TOKEN>
 Content-Type: application/json
 
 {
-  "url": "<原始URL>",
-  "title": "<生成的标题>",
-  "summary": "<生成的摘要>",
-  "content": "<原始抓取内容>",
-  "tags": ["<标签1>", "<标签2>", "<标签3>"]
+  "url": "<original URL>",
+  "title": "<generated title>",
+  "summary": "<generated summary>",
+  "content": "<raw fetched content>",
+  "tags": ["<tag1>", "<tag2>", "<tag3>"]
 }
 ```
 
-- 必填字段：`url`、`title`、`summary`、`content`、`tags`
+Required fields:
+- `url`
+- `title`
+- `summary`
+- `content`
+- `tags`
 
-### 5. 返回结果
+### 5. Return result
 
-返回：
-- 标题
-- 标签
-- 摘要
-- 收藏访问地址
-- 保存时间
+Return:
+- title
+- tags
+- summary
+- bookmark URL
+- saved time
 
-## 错误处理
+## Error Handling
 
-- URL 无效或是私网地址：直接拒绝
-- 抓取失败：报告 `attempts` 中的失败原因
-- API 认证失败：提示检查 `SQUIRREL_API_TOKEN`
-- 无法生成结构化字段：询问用户补充
-- API 返回错误：转述错误并建议重试
+- Invalid URL or private/internal address: reject directly.
+- Fetch failure: report the errors from `attempts`.
+- Missing or invalid `SQUIRREL_API_TOKEN`: report auth/config failure.
+- No AI capability: return unavailable and stop.
+- Bookmark API error: surface the API error and suggest retrying.
 
-## 约束
+## Constraints
 
-- 这是面向 agent 的 skill，不是通用用户配置化工具
-- 不允许覆盖收藏 API 端点
-- 只保存与收藏任务直接相关的数据
+- This is an agent skill, not a configurable end-user tool.
+- Do not change or override the bookmark API endpoint.
+- Store only data required for the bookmark task.
