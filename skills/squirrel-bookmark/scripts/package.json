@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "fetch": "bun run fetch-page.ts"
+    "fetch": "bun run fetch-page.ts",
+    "save": "bun run save-bookmark.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

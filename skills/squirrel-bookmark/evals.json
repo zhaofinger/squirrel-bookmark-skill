@@ -42,6 +42,12 @@
       "prompt": "Remember these settings for future bookmarks: summary language Chinese, format paragraph, style technical, length short. Then save https://example.com/article",
       "expected_output": "Stores the persistent summary preferences only in ~/.config/squirrel-bookmark/preferences.json, uses them for the current bookmark, and returns the applied summary preferences with the saved result",
       "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Save https://example.com/long-article to Squirrel. Keep the full page content intact.",
+      "expected_output": "Writes the fetch result to a file, generates only title summary and tags with AI, and uses the save helper so the raw content is sent unchanged instead of being reconstructed in agent JSON",
+      "files": []
     }
   ]
 }

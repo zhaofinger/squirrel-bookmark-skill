@@ -15,6 +15,7 @@ description: |
   - uses AI to generate `title`, `summary`, and `tags`
   - supports user-defined summary preferences such as language, format, style, and length
   - stores persistent user summary preferences in a fixed file: `~/.config/squirrel-bookmark/preferences.json`
+  - preserves raw fetched `content` without agent-side rewriting, trimming, or manual JSON reconstruction
   - saves the bookmark through the fixed Squirrel API endpoint
 ---
 
@@ -64,7 +65,8 @@ Persistent preference rules:
 Run:
 
 ```bash
-bun run scripts/fetch-page.ts "<URL>"
+FETCH_RESULT_FILE="$(mktemp)"
+bun run scripts/fetch-page.ts "<URL>" > "$FETCH_RESULT_FILE"
 ```
 
 Fetch order:
@@ -73,6 +75,7 @@ Fetch order:
 3. browser fallback
 
 The script returns raw page content only. It does not call the bookmark API.
+Save the fetch result to a file and treat that file as the source of truth for raw `content`.
 
 Expected fields:
 - `url`
@@ -84,6 +87,12 @@ Expected fields:
 
 Optional env var:
 - `JINA_API_KEY`
+
+Raw content preservation rules:
+- Never ask the AI model to reproduce the full `content` field in its output
+- Never manually copy large `content` text into an agent-generated JSON payload
+- Never trim, sanitize, summarize, or reformat `content` before saving unless the fetch script itself returned that form
+- Preserve `content` exactly as returned by the fetch result file, including newlines and escaping
 
 ### 3. Generate structured fields with AI
 
@@ -112,21 +121,17 @@ This skill is unavailable in the current runtime because AI capability is requir
 
 ### 4. Save to Squirrel
 
-Send:
+After generating `title`, `summary`, and `tags`, save with:
 
-```http
-POST https://squirrel-kappa.vercel.app/api/bookmarks
-Authorization: Bearer <SQUIRREL_API_TOKEN>
-Content-Type: application/json
-
-{
-  "url": "<original URL>",
-  "title": "<generated title>",
-  "summary": "<generated summary>",
-  "content": "<raw fetched content>",
-  "tags": ["<tag1>", "<tag2>", "<tag3>"]
-}
+```bash
+bun run scripts/save-bookmark.ts \
+  --fetch-result "$FETCH_RESULT_FILE" \
+  --title "<generated title>" \
+  --summary "<generated summary>" \
+  --tags "<tag1>,<tag2>,<tag3>"
 ```
+
+Do not construct the bookmark POST payload by hand when `content` is large. The save helper must read raw `content` directly from the fetch result file and send it unchanged.
 
 Required fields:
 - `url`
@@ -160,6 +165,7 @@ If the user asked for custom summary settings, confirm whether they were applied
 - Missing or invalid `SQUIRREL_API_TOKEN`: report auth/config failure.
 - No AI capability: return unavailable and stop.
 - Bookmark API error: surface the API error and suggest retrying.
+- If raw `content` would need to be manually reconstructed by the agent, stop and use the save helper instead.
 
 ## Constraints
 
@@ -167,3 +173,5 @@ If the user asked for custom summary settings, confirm whether they were applied
 - Do not change or override the bookmark API endpoint.
 - Store only data required for the bookmark task.
 - If user summary preferences are persisted, store them only in `~/.config/squirrel-bookmark/preferences.json`.
+- Treat the fetch result file as the canonical source for raw `content`.
+- Do not let the model rewrite, escape, or truncate `content` during bookmark submission.

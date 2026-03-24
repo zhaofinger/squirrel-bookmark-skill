@@ -4,7 +4,7 @@ This repository is a Vercel-style agent skills package for saving public web pag
 
 ## Included Skill
 
-- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, supports user-defined summary preferences, stores persistent summary preferences in `~/.config/squirrel-bookmark/preferences.json`, and saves it to the fixed Squirrel bookmark API.
+- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, supports user-defined summary preferences, stores persistent summary preferences in `~/.config/squirrel-bookmark/preferences.json`, preserves raw fetched content without agent-side reconstruction, and saves it to the fixed Squirrel bookmark API.
 
 ## Repository Layout
 
@@ -92,11 +92,30 @@ cd skills/squirrel-bookmark/scripts
 bun run fetch https://example.com
 ```
 
+Run the save helper:
+
+```bash
+cd skills/squirrel-bookmark/scripts
+bun run save --fetch-result /tmp/fetch-result.json --title "Example" --summary "Short summary" --tags "example,web"
+```
+
 Or run it from the repository root:
 
 ```bash
 bun run skills/squirrel-bookmark/scripts/fetch-page.ts https://example.com
 ```
+
+## Raw Content Integrity
+
+When the skill is used by an agent, the raw page `content` is often the most fragile field because it can be re-escaped, truncated, or clipped if the agent manually rebuilds the bookmark JSON payload.
+
+To avoid that, the intended flow is:
+
+1. Save the fetch result JSON to a file.
+2. Use AI only for `title`, `summary`, and `tags`.
+3. Call `save-bookmark.ts` with the fetch result file so the raw `content` is read from disk and sent unchanged.
+
+The agent should not reproduce the full `content` field inside model output.
 
 ## Publishing And Discovery
 
