@@ -1,127 +1,68 @@
 ---
 name: squirrel-bookmark
-license: MIT
-metadata:
-  version: 1.2.2
-  repository: https://github.com/zhaofinger/squirrel-bookmark-skill
-  category: productivity
-description: |
-  Save a web page URL to Squirrel bookmarks.
-
-  Trigger when the user wants to save, bookmark, or add a URL to Squirrel.
-
-  The skill:
-  - fetches page content
-  - uses AI to generate `title`, `summary`, and `tags`
-  - supports user-defined summary preferences such as language, format, style, and length
-  - stores persistent user summary preferences in a fixed file: `~/.config/squirrel-bookmark/preferences.json`
-  - preserves raw fetched `content` without agent-side rewriting, trimming, or manual JSON reconstruction
-  - saves the bookmark through the fixed Squirrel API endpoint
+description: 将公开网页 URL 保存到 Squirrel 书签。适用于用户要求保存、收藏、添加网页到 Squirrel，要求按指定语言、格式、风格、长度生成摘要并记住这些偏好，或仅发送一个链接且没有任何额外说明时。抓取页面内容，使用 AI 生成 `title`、`summary`、`tags`，将持久化摘要偏好保存在 `~/.config/squirrel-bookmark/preferences.json`。
 ---
 
-# Squirrel Bookmark Skill
+# Squirrel Bookmark
 
-Save a public web page to Squirrel bookmarks.
+## 固定规则
 
-## Requirements
+- 要求运行时提供 `SQUIRREL_API_TOKEN`。
+- 要求运行时具备 AI 能力；没有 AI 能力时立即停止并返回不可用错误。
+- 将持久化摘要偏好保存到 `~/.config/squirrel-bookmark/preferences.json`。
+- 将抓取结果文件视为原始 `content` 的唯一可信来源。
+- 保持原始 `content` 不被模型复现、改写、重新转义、裁剪或手动重建。
 
-- `SQUIRREL_API_TOKEN` must be available.
-- The runtime must have AI capability for structured extraction.
-- The bookmark API endpoint is fixed: `https://squirrel-kappa.vercel.app/api/bookmarks`
-- Persistent user summary preferences must be stored only in `~/.config/squirrel-bookmark/preferences.json`
-- Do not accept a user-defined Squirrel API URL.
+## 执行流程
 
-## Workflow
+### 1. 校验请求
 
-### 1. Validate input
+- 缺少 URL 时先向用户索取 URL。
+- 拒绝无效 URL、不支持的 scheme、私有地址和内网地址。
+- 读取请求中的摘要偏好：`language`、`format`、`style`、`length`。
+- 如果用户要求记住、保存、更新或复用摘要偏好，读写 `~/.config/squirrel-bookmark/preferences.json`。
+- 如果用户只提出一次性偏好且未要求保存，只用于当前请求，不修改偏好文件。
+- 如果用户没有指定偏好，先读取已保存偏好；若仍不存在，再使用以下默认值：
+  - `language`：优先跟随用户当前语言，不明确时用中文
+  - `format`：单句或短段落，以最适合内容者为准
+  - `style`：中性、事实性
+  - `length`：简洁
 
-- If no URL is provided, ask for one.
-- Reject invalid URLs, unsupported schemes, and private/internal addresses.
-- Accept optional user preferences for summary generation.
-- When the user asks to remember, save, update, or reuse summary preferences, persist them to `~/.config/squirrel-bookmark/preferences.json`.
+### 2. 抓取页面
 
-Supported summary preferences:
-- `language`, for example `English`, `Chinese`, or `Japanese`
-- `format`, for example `sentence`, `paragraph`, or `bullets`
-- `style`, for example `neutral`, `technical`, `concise`, or `detailed`
-- `length`, for example a character target, word target, or labels such as `short` and `long`
-
-If the user does not specify preferences, use defaults:
-- `language`: match the user's language when clear, otherwise English
-- `format`: plain sentence or short paragraph, whichever best fits the content
-- `style`: neutral and factual
-- `length`: concise
-
-Persistent preference rules:
-- Use exactly one file for saved user summary preferences: `~/.config/squirrel-bookmark/preferences.json`
-- Do not write the same preference data to any other file, database, or alternate path
-- Treat the file as user-level state for this skill, not as bookmark content
-- Load saved preferences from this file before applying defaults
-- If the user provides new preferences for future use, update this file and then apply the merged preferences to the current request
-- If the user provides one-off preferences without asking to save them, apply them only to the current request and do not modify the file
-
-### 2. Fetch page content
-
-Run:
+先创建临时文件并保存抓取结果：
 
 ```bash
 FETCH_RESULT_FILE="$(mktemp)"
 bun run scripts/fetch-page.ts "<URL>" > "$FETCH_RESULT_FILE"
 ```
 
-Fetch order:
-1. `defuddle.md`
-2. `r.jina.ai`
-3. browser fallback
+- 依次使用 `defuddle.md`、`r.jina.ai`、浏览器兜底抓取。
+- 期待抓取结果包含 `url`、`content`、`contentType`、`source`、`success`；失败时包含 `attempts`。
+- `JINA_API_KEY` 为可选环境变量。
+- 后续保存时直接使用该文件中的原始 `content`。
 
-The script returns raw page content only. It does not call the bookmark API.
-Save the fetch result to a file and treat that file as the source of truth for raw `content`.
+### 3. 生成元数据
 
-Expected fields:
-- `url`
-- `content`
-- `contentType`
-- `source`
-- `success`
-- `attempts` on failure
+只用 AI 生成以下字段：
 
-Optional env var:
-- `JINA_API_KEY`
-
-Raw content preservation rules:
-- Never ask the AI model to reproduce the full `content` field in its output
-- Never manually copy large `content` text into an agent-generated JSON payload
-- Never trim, sanitize, summarize, or reformat `content` before saving unless the fetch script itself returned that form
-- Preserve `content` exactly as returned by the fetch result file, including newlines and escaping
-
-### 3. Generate structured fields with AI
-
-Use AI to generate:
 - `title`
 - `summary`
-- `tags` with 3 to 5 items
+- `tags`，数量为 3 到 5 个
 
-Honor any user-provided summary preferences for language, format, style, and length.
-When saved preferences exist in `~/.config/squirrel-bookmark/preferences.json`, use them as the baseline before applying request-specific overrides.
-If a user preference conflicts with safety, reliability, or the bookmark API contract, keep the output safe and explain the adjustment briefly.
+生成时遵循合并后的摘要偏好。
 
-Default summary behavior when no preference is provided:
-- concise
-- factual
-- easy to scan
-- suitable for bookmark recall rather than full content replacement
+- 如果用户偏好与安全性、可靠性或 API 契约冲突，做最小必要调整并简要说明。
 
-If the runtime does not have AI capability, stop immediately and return an unavailable error. Do not fall back to manual rules, HTML parsing, or user follow-up for these fields.
-
-Suggested error:
+如果没有 AI 能力，返回：
 
 ```text
-This skill is unavailable in the current runtime because AI capability is required to generate bookmark metadata.
+当前运行时无法使用此技能，因为生成书签元数据需要 AI 能力。
 ```
 
-### 4. Save to Squirrel
+### 4. 保存书签
 
-After generating `title`, `summary`, and `tags`, save with:
+生成完 `title`、`summary`、`tags` 后，调用保存脚本：
 
 ```bash
 bun run scripts/save-bookmark.ts \
@@ -131,55 +72,21 @@ bun run scripts/save-bookmark.ts \
   --tags "<tag1>,<tag2>,<tag3>"
 ```
 
-Do not construct the bookmark POST payload by hand when `content` is large. The save helper must read raw `content` directly from the fetch result file and send it unchanged.
+- 通过保存脚本提交书签请求。
 
-Required fields:
-- `url`
+### 5. 返回结果
+
+成功后向用户返回消息包含以下字段：
+
 - `title`
-- `summary`
-- `content`
 - `tags`
+- `summary`
+- `bookmark URL`
+- `saved time`
 
-### 5. Return result
+## 失败处理
 
-Return:
-- title
-- tags
-- summary
-- applied summary preferences
-- bookmark URL
-- saved time
-
-After the bookmark is saved successfully, always return the generated `summary` to the user in the final response.
-Do not return only a generic success confirmation such as "saved" or "bookmarked" without the summary content.
-The summary should be directly visible in the user-facing response, not hidden only inside tool output or metadata.
-Use the locally generated and submitted `summary` as the source of truth for the final response, even if the bookmark API response does not include a `summary` field.
-Do not claim the summary is missing just because the API response omitted it.
-
-Expose the applied summary preferences in the response so the user can see what was used for:
-- language
-- format
-- style
-- length
-
-If the user asked for custom summary settings, confirm whether they were applied exactly or adjusted.
-
-## Error Handling
-
-- Invalid URL or private/internal address: reject directly.
-- Fetch failure: report the errors from `attempts`.
-- Missing or invalid `SQUIRREL_API_TOKEN`: report auth/config failure.
-- No AI capability: return unavailable and stop.
-- Bookmark API error: surface the API error and suggest retrying.
-- If raw `content` would need to be manually reconstructed by the agent, stop and use the save helper instead.
-- If the bookmark API response omits `summary`, still return the locally generated and submitted summary to the user.
-
-## Constraints
-
-- This is an agent skill, not a configurable end-user tool.
-- Do not change or override the bookmark API endpoint.
-- Store only data required for the bookmark task.
-- If user summary preferences are persisted, store them only in `~/.config/squirrel-bookmark/preferences.json`.
-- Treat the fetch result file as the canonical source for raw `content`.
-- Do not let the model rewrite, escape, or truncate `content` during bookmark submission.
-- Do not depend on the bookmark API response body as the only source for returning `summary` to the user.
+- 抓取失败：返回 `attempts` 中的错误。
+- `SQUIRREL_API_TOKEN` 缺失或无效：返回鉴权或配置失败。
+- AI 能力不可用：立即停止并返回不可用错误。
+- 书签 API 报错：透出 API 错误并建议重试。

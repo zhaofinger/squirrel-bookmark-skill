@@ -249,7 +249,7 @@ async function main() {
 
   if (!url) {
     console.log(JSON.stringify({
-      error: "Usage: bun fetch-page.ts <URL>",
+      error: '用法：bun fetch-page.ts <URL>',
       success: false,
       source: 'none',
     }, null, 2));

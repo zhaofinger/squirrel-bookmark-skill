@@ -1,12 +1,12 @@
-# Squirrel Bookmark Skill Package
+# Squirrel Bookmark Skill 包
 
-This repository is a Vercel-style agent skills package for saving public web pages to Squirrel bookmarks.
+这个仓库是一个 Vercel 风格的 agent skill 包，用于把公开网页保存到 Squirrel 书签。
 
-## Included Skill
+## 包含的 Skill
 
-- `squirrel-bookmark`: fetches a public web page, generates bookmark metadata with AI, supports user-defined summary preferences, stores persistent summary preferences in `~/.config/squirrel-bookmark/preferences.json`, preserves raw fetched content without agent-side reconstruction, and saves it to the fixed Squirrel bookmark API.
+- `squirrel-bookmark`：抓取公开网页，使用 AI 生成书签元数据，支持用户自定义摘要偏好，将持久化摘要偏好保存在 `~/.config/squirrel-bookmark/preferences.json`，并直接使用抓取结果中的原始内容完成保存。
 
-## Repository Layout
+## 仓库结构
 
 ```text
 skills/
@@ -20,118 +20,117 @@ skills/
       package.json
 ```
 
-## Install
+## 安装
 
-Install the specific skill from this repository:
+从这个仓库安装指定 skill：
 
 ```bash
 npx skills add zhaofinger/squirrel-bookmark-skill --skill squirrel-bookmark
 ```
 
-If the repository is already known to contain a single skill, a plain repository install may also work:
+如果该仓库已经被识别为仅包含一个 skill，也可以直接安装整个仓库：
 
 ```bash
 npx skills add zhaofinger/squirrel-bookmark-skill
 ```
 
-## Requirements
+## 运行要求
 
-- `SQUIRREL_API_TOKEN` must be available at runtime.
-- The runtime must have AI capability. The skill does not fall back to rule-based metadata extraction.
-- Bun is required to run the local fetch helper.
-- `JINA_API_KEY` is optional.
+- 运行时必须提供 `SQUIRREL_API_TOKEN`。
+- 运行时必须具备 AI 能力。
+- 运行本地抓取脚本需要 Bun。
+- `JINA_API_KEY` 为可选项。
 
-## Summary Customization
+## 摘要定制
 
-The skill keeps sensible defaults, but users can customize summary generation per request.
+这个 skill 提供合理的默认行为，但用户也可以按请求自定义摘要生成方式。
 
-Supported summary options:
+支持的摘要选项：
 
 - `language`
 - `format`
 - `style`
 - `length`
 
-Example requests:
+示例请求：
 
 ```text
-Save this page to Squirrel and write the summary in Chinese.
+把这个页面保存到 Squirrel，并用中文写摘要。
 ```
 
 ```text
-Bookmark this URL. Make the summary a short technical paragraph in English.
+收藏这个 URL。摘要请用英文，写成一小段技术风格内容。
 ```
 
 ```text
-Save this page and use a long neutral summary with about 120 words.
+保存这个页面，摘要用中性风格，写长一点，大约 120 字。
 ```
 
-The response should also expose the applied summary preferences so users can verify what was used.
+回复中还应展示实际应用的摘要偏好，方便用户核对。
 
-If the user wants the preferences remembered for future bookmarks, the skill should persist them only in:
+如果用户希望这些偏好用于以后的书签，skill 会将它们保存在：
 
 ```text
 ~/.config/squirrel-bookmark/preferences.json
 ```
 
-Saved preferences act as the baseline for later requests. One-off summary instructions should be applied only to the current request and should not update the file unless the user explicitly asks to remember them.
+已保存的偏好会作为后续请求的基线。一次性摘要指令只应用于当前请求；只有在用户明确要求记住时才更新该文件。
 
-## Local Development
+## 本地开发
 
-Install Bun dependencies:
+安装 Bun 依赖：
 
 ```bash
 cd skills/squirrel-bookmark/scripts
 bun install
 ```
 
-Run the fetch helper:
+运行抓取脚本：
 
 ```bash
 cd skills/squirrel-bookmark/scripts
 bun run fetch https://example.com
 ```
 
-Run the save helper:
+运行保存脚本：
 
 ```bash
 cd skills/squirrel-bookmark/scripts
 bun run save --fetch-result /tmp/fetch-result.json --title "Example" --summary "Short summary" --tags "example,web"
 ```
 
-Or run it from the repository root:
+或者在仓库根目录直接运行：
 
 ```bash
 bun run skills/squirrel-bookmark/scripts/fetch-page.ts https://example.com
 ```
 
-## Raw Content Integrity
+## 原始内容完整性
 
-When the skill is used by an agent, the raw page `content` is often the most fragile field because it can be re-escaped, truncated, or clipped if the agent manually rebuilds the bookmark JSON payload.
+当 agent 使用这个 skill 时，页面原始 `content` 往往是最脆弱的字段，因为一旦由 agent 手动重建书签 JSON payload，就可能被重新转义、截断或裁剪。
 
-To avoid that, the intended flow is:
+为了避免这个问题，推荐流程是：
 
-1. Save the fetch result JSON to a file.
-2. Use AI only for `title`, `summary`, and `tags`.
-3. Call `save-bookmark.ts` with the fetch result file so the raw `content` is read from disk and sent unchanged.
+1. 将抓取结果 JSON 保存到文件。
+2. 只用 AI 生成 `title`、`summary` 和 `tags`。
+3. 使用抓取结果文件调用 `save-bookmark.ts`，让原始 `content` 直接从磁盘读取并原样发送。
 
-The agent should not reproduce the full `content` field inside model output.
+agent 应直接使用抓取结果中的原始 `content`，通过保存脚本完成提交。
 
-## Publishing And Discovery
+## 发布与发现
 
-There is no separate publish command for `skills.sh`. To make the skill discoverable:
+`skills.sh` 没有单独的发布命令。要让 skill 可被发现：
 
-1. Keep the skill in a public Git repository.
-2. Ensure the skill folder name matches the `name` in `SKILL.md`.
-3. Share the install command with users.
-4. Once users install it with `npx skills add`, it can appear in `skills.sh` search via install telemetry.
+1. 将 skill 保存在公开的 Git 仓库中。
+2. 确保 skill 文件夹名与 `SKILL.md` 中的 `name` 一致。
+3. 把安装命令分享给用户。
+4. 用户通过 `npx skills add` 安装后，它可以通过安装遥测出现在 `skills.sh` 搜索结果中。
 
-## Safety
+## 安全性
 
-- The skill only accepts public `http` and `https` URLs.
-- Localhost, link-local, and private network addresses are rejected.
-- The Squirrel API endpoint is fixed and must not be overridden.
+- 这个 skill 只接受公开的 `http` 和 `https` URL。
+- 会拒绝 localhost、链路本地地址和私有网络地址。
 
-## License
+## 许可证
 
 MIT

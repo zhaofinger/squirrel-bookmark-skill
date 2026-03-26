@@ -86,31 +86,31 @@ async function loadFetchResult(path: string): Promise<FetchResult> {
   const parsed = JSON.parse(raw) as Partial<FetchResult>;
 
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Fetch result is not a JSON object');
+    throw new Error('抓取结果不是 JSON 对象');
   }
 
   if (parsed.success !== true) {
-    throw new Error(`Fetch result is not successful${parsed.error ? `: ${parsed.error}` : ''}`);
+    throw new Error(`抓取结果不是成功状态${parsed.error ? `：${parsed.error}` : ''}`);
   }
 
   if (typeof parsed.url !== 'string' || !parsed.url) {
-    throw new Error('Fetch result is missing a valid url');
+    throw new Error('抓取结果缺少有效的 url');
   }
 
   if (typeof parsed.content !== 'string') {
-    throw new Error('Fetch result is missing raw content');
+    throw new Error('抓取结果缺少原始 content');
   }
 
   if (parsed.content.length === 0) {
-    throw new Error('Fetch result content is empty');
+    throw new Error('抓取结果中的 content 为空');
   }
 
   if (parsed.contentType !== 'markdown' && parsed.contentType !== 'html') {
-    throw new Error('Fetch result has an invalid contentType');
+    throw new Error('抓取结果包含无效的 contentType');
   }
 
   if (!['defuddle', 'jina', 'browser'].includes(parsed.source ?? '')) {
-    throw new Error('Fetch result has an invalid source');
+    throw new Error('抓取结果包含无效的 source');
   }
 
   return parsed as FetchResult;
@@ -129,7 +129,7 @@ async function main() {
       success: false,
       endpoint: BOOKMARK_ENDPOINT,
       status: null,
-      error: 'Usage: bun save-bookmark.ts --fetch-result <path> --title <text> --summary <text> --tags <comma,separated,tags> [--token <token>]',
+      error: '用法：bun save-bookmark.ts --fetch-result <path> --title <text> --summary <text> --tags <逗号分隔标签> [--token <token>]',
     }, null, 2));
     process.exit(1);
   }
@@ -139,7 +139,7 @@ async function main() {
       success: false,
       endpoint: BOOKMARK_ENDPOINT,
       status: null,
-      error: 'Missing SQUIRREL_API_TOKEN',
+      error: '缺少 SQUIRREL_API_TOKEN',
     }, null, 2));
     process.exit(1);
   }
@@ -149,7 +149,7 @@ async function main() {
     const tags = parseTags(tagsValue);
 
     if (tags.length < 1) {
-      throw new Error('At least one tag is required');
+      throw new Error('至少需要一个标签');
     }
 
     const payload = {
@@ -184,7 +184,7 @@ async function main() {
         endpoint: BOOKMARK_ENDPOINT,
         status: response.status,
         responseBody,
-        error: `Bookmark API error: HTTP ${response.status}`,
+        error: `书签 API 错误：HTTP ${response.status}`,
       } satisfies SaveResult, null, 2));
       process.exit(1);
     }

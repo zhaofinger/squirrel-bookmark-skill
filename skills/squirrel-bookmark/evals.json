@@ -3,62 +3,62 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Save this link to Squirrel: https://example.com/article. Token: sq_test123",
-      "expected_output": "Uses the fixed Squirrel API endpoint, saves the bookmark, and returns the title, summary, and bookmark URL",
+      "prompt": "把这个链接保存到 Squirrel：https://example.com/article。Token: sq_test123",
+      "expected_output": "使用固定的 Squirrel API 端点保存书签，并返回标题、摘要和书签 URL",
       "files": []
     },
     {
       "id": 2,
-      "prompt": "Bookmark this page: https://github.com/anthropics/claude-code",
-      "expected_output": "Fetches the GitHub page, generates metadata with AI, saves it to Squirrel, and returns the result",
+      "prompt": "收藏这个页面：https://github.com/anthropics/claude-code",
+      "expected_output": "抓取 GitHub 页面，用 AI 生成元数据，保存到 Squirrel，并返回结果",
       "files": []
     },
     {
       "id": 3,
-      "prompt": "Save a web page",
-      "expected_output": "Asks the user for a URL",
+      "prompt": "保存一个网页",
+      "expected_output": "向用户索取 URL",
       "files": []
     },
     {
       "id": 4,
-      "prompt": "Bookmark this link: http://127.0.0.1/admin",
-      "expected_output": "Rejects the private/internal address and does not fetch it",
+      "prompt": "收藏这个链接：http://127.0.0.1/admin",
+      "expected_output": "拒绝私有/内网地址，并且不进行抓取",
       "files": []
     },
     {
       "id": 5,
-      "prompt": "Save https://example.com/article to Squirrel, but the runtime has no AI capability",
-      "expected_output": "Stops immediately and returns that the skill is unavailable because AI capability is required to generate bookmark metadata",
+      "prompt": "把 https://example.com/article 保存到 Squirrel，但当前运行时没有 AI 能力",
+      "expected_output": "立即停止，并返回该技能不可用，因为生成书签元数据需要 AI 能力",
       "files": []
     },
     {
       "id": 6,
-      "prompt": "Save this page to Squirrel: https://example.com/article. Write the summary in Chinese as a short technical paragraph.",
-      "expected_output": "Applies the requested summary language, format, and style when generating bookmark metadata, then returns the saved result together with the applied summary preferences",
+      "prompt": "把这个页面保存到 Squirrel：https://example.com/article。摘要请用中文，写成一小段技术风格内容。",
+      "expected_output": "生成书签元数据时应用请求的摘要语言、格式和风格，并在返回保存结果时一并展示实际应用的摘要偏好",
       "files": []
     },
     {
       "id": 7,
-      "prompt": "Remember these settings for future bookmarks: summary language Chinese, format paragraph, style technical, length short. Then save https://example.com/article",
-      "expected_output": "Stores the persistent summary preferences only in ~/.config/squirrel-bookmark/preferences.json, uses them for the current bookmark, and returns the applied summary preferences with the saved result",
+      "prompt": "记住以后书签都用这些设置：摘要语言中文、格式段落、风格技术性、长度短。然后保存 https://example.com/article",
+      "expected_output": "仅将持久化摘要偏好保存到 ~/.config/squirrel-bookmark/preferences.json，在当前书签中使用这些偏好，并在返回保存结果时展示实际应用的摘要偏好",
       "files": []
     },
     {
       "id": 8,
-      "prompt": "Save https://example.com/long-article to Squirrel. Keep the full page content intact.",
-      "expected_output": "Writes the fetch result to a file, generates only title summary and tags with AI, and uses the save helper so the raw content is sent unchanged instead of being reconstructed in agent JSON",
+      "prompt": "把 https://example.com/long-article 保存到 Squirrel，保留完整页面内容，不要改动。",
+      "expected_output": "将抓取结果写入文件，只用 AI 生成 title、summary 和 tags，并通过保存脚本原样发送原始 content，而不是在 agent JSON 中手动重建",
       "files": []
     },
     {
       "id": 9,
-      "prompt": "Bookmark https://example.com/article and tell me the summary after saving.",
-      "expected_output": "Saves the bookmark successfully and returns the generated summary directly in the user-facing response together with the saved result",
+      "prompt": "收藏 https://example.com/article，保存后把摘要告诉我。",
+      "expected_output": "成功保存书签，并在面向用户的回复中直接返回生成的摘要和保存结果",
       "files": []
     },
     {
       "id": 10,
-      "prompt": "Save this page to Squirrel and show me the summary even if the API response does not contain one: https://example.com/article",
-      "expected_output": "Returns the locally generated and submitted summary to the user after saving instead of claiming the summary is missing because the API response omitted it",
+      "prompt": "把这个页面保存到 Squirrel，就算 API 响应里没有摘要也要展示给我：https://example.com/article",
+      "expected_output": "保存后向用户返回本地生成并提交的摘要，而不是因为 API 响应缺少该字段就声称摘要不存在",
       "files": []
     }
   ]
