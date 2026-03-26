@@ -48,6 +48,12 @@
       "prompt": "Save https://example.com/long-article to Squirrel. Keep the full page content intact.",
       "expected_output": "Writes the fetch result to a file, generates only title summary and tags with AI, and uses the save helper so the raw content is sent unchanged instead of being reconstructed in agent JSON",
       "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "Bookmark https://example.com/article and tell me the summary after saving.",
+      "expected_output": "Saves the bookmark successfully and returns the generated summary directly in the user-facing response together with the saved result",
+      "files": []
     }
   ]
 }

@@ -2,7 +2,7 @@
 name: squirrel-bookmark
 license: MIT
 metadata:
-  version: 1.2.0
+  version: 1.2.1
   repository: https://github.com/zhaofinger/squirrel-bookmark-skill
   category: productivity
 description: |
@@ -149,6 +149,10 @@ Return:
 - applied summary preferences
 - bookmark URL
 - saved time
+
+After the bookmark is saved successfully, always return the generated `summary` to the user in the final response.
+Do not return only a generic success confirmation such as "saved" or "bookmarked" without the summary content.
+The summary should be directly visible in the user-facing response, not hidden only inside tool output or metadata.
 
 Expose the applied summary preferences in the response so the user can see what was used for:
 - language
