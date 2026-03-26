@@ -32,6 +32,10 @@ interface SaveResult {
   success: boolean;
   endpoint: string;
   status: number | null;
+  submittedUrl?: string;
+  submittedTitle?: string;
+  submittedSummary?: string;
+  submittedTags?: string[];
   bookmarkUrl?: string;
   savedTime?: string;
   responseBody?: unknown;
@@ -193,6 +197,10 @@ async function main() {
       success: true,
       endpoint: BOOKMARK_ENDPOINT,
       status: response.status,
+      submittedUrl: fetchResult.url,
+      submittedTitle: title,
+      submittedSummary: summary,
+      submittedTags: tags,
       bookmarkUrl: typeof parsedBody?.bookmarkUrl === 'string'
         ? parsedBody.bookmarkUrl
         : typeof parsedBody?.url === 'string'

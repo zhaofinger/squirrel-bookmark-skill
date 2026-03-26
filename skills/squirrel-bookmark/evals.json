@@ -54,6 +54,12 @@
       "prompt": "Bookmark https://example.com/article and tell me the summary after saving.",
       "expected_output": "Saves the bookmark successfully and returns the generated summary directly in the user-facing response together with the saved result",
       "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "Save this page to Squirrel and show me the summary even if the API response does not contain one: https://example.com/article",
+      "expected_output": "Returns the locally generated and submitted summary to the user after saving instead of claiming the summary is missing because the API response omitted it",
+      "files": []
     }
   ]
 }

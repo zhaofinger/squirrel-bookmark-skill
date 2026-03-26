@@ -2,7 +2,7 @@
 name: squirrel-bookmark
 license: MIT
 metadata:
-  version: 1.2.1
+  version: 1.2.2
   repository: https://github.com/zhaofinger/squirrel-bookmark-skill
   category: productivity
 description: |
@@ -153,6 +153,8 @@ Return:
 After the bookmark is saved successfully, always return the generated `summary` to the user in the final response.
 Do not return only a generic success confirmation such as "saved" or "bookmarked" without the summary content.
 The summary should be directly visible in the user-facing response, not hidden only inside tool output or metadata.
+Use the locally generated and submitted `summary` as the source of truth for the final response, even if the bookmark API response does not include a `summary` field.
+Do not claim the summary is missing just because the API response omitted it.
 
 Expose the applied summary preferences in the response so the user can see what was used for:
 - language
@@ -170,6 +172,7 @@ If the user asked for custom summary settings, confirm whether they were applied
 - No AI capability: return unavailable and stop.
 - Bookmark API error: surface the API error and suggest retrying.
 - If raw `content` would need to be manually reconstructed by the agent, stop and use the save helper instead.
+- If the bookmark API response omits `summary`, still return the locally generated and submitted summary to the user.
 
 ## Constraints
 
@@ -179,3 +182,4 @@ If the user asked for custom summary settings, confirm whether they were applied
 - If user summary preferences are persisted, store them only in `~/.config/squirrel-bookmark/preferences.json`.
 - Treat the fetch result file as the canonical source for raw `content`.
 - Do not let the model rewrite, escape, or truncate `content` during bookmark submission.
+- Do not depend on the bookmark API response body as the only source for returning `summary` to the user.
